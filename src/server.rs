@@ -4,10 +4,10 @@ use axum::Extension;
 use std::{env, net::SocketAddr};
 use tokio::{net::TcpListener, signal};
 
-use crate::routes;
+use crate::{config::Config, routes};
 
 #[allow(clippy::redundant_pub_crate)]
-pub(crate) async fn start() -> Result<()> {
+pub(crate) async fn start(config: Config) -> Result<()> {
 	let mut openapi = OpenApi {
 		info: openapi::Info {
 			title: "Orbit".to_string(),
@@ -19,7 +19,7 @@ pub(crate) async fn start() -> Result<()> {
 
 	let router = routes::handler().finish_api(&mut openapi);
 
-	let router = router.layer(Extension(openapi));
+	let router = router.layer(config.extension()).layer(Extension(openapi));
 
 	let addr = SocketAddr::from((
 		[0, 0, 0, 0],

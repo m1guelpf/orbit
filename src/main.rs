@@ -1,13 +1,19 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
+use std::env;
+
 use anyhow::Result;
+use config::Config;
 use dotenvy::dotenv;
 use tracing_subscriber::{
 	prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
 };
 
+mod config;
+mod misc;
 mod routes;
 mod server;
+mod site;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,5 +27,6 @@ async fn main() -> Result<()> {
 		)
 		.init();
 
-	server::start().await
+	let config = Config::load(env::var("ORBIT_CONFIG")?)?;
+	server::start(config).await
 }

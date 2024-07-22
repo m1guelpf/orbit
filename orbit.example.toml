@@ -1,0 +1,6 @@
+version = 1
+
+[[sites]]
+name = "Test Site"
+path = "/var/www/test-site"
+github_repo = "m1guelpf/laravel-test"
