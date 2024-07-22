@@ -9,15 +9,15 @@ FROM chef AS builder
 COPY --from=planner /orbit/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
-RUN cargo build --release --bin orbit
+RUN cargo build --release --bin orbit-server
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /orbit
-COPY --from=builder /orbit/target/release/orbit /usr/local/bin
+COPY --from=builder /orbit/target/release/orbit-server /usr/local/bin
 
 EXPOSE 8000
 VOLUME ["/storage"]
-ENTRYPOINT ["/usr/local/bin/orbit"]
+ENTRYPOINT ["/usr/local/bin/orbit-server"]
 
 HEALTHCHECK --interval=5m \
     CMD curl -f http://localhost:8000/ || exit 1

@@ -1,9 +1,9 @@
 [package]
-license = "MIT"
-edition = "2021"
 version = "0.1.0"
 name = "orbit-server"
-authors = ["Miguel Piedrafita <soy@miguelpiedrafita.com>"]
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
 
 [dependencies]
 axum = "0.7.5"
@@ -28,6 +28,7 @@ tokio = { version = "1.29.1", features = ["full"] }
 aide = { version = "0.13.4", features = ["axum", "scalar"] }
 axum-jsonschema = { version = "0.8.0", features = ["aide"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+orbit-core = { version = "0.1.0", path = "../orbit-core" }
 
 [build-dependencies]
 chrono = "0.4.26"

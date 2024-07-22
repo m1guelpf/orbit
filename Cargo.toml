@@ -1,3 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["orbit-server"]
+members = ["orbit-cli", "orbit-client", "orbit-core", "orbit-server"]
+
+[workspace.package]
+license = "MIT"
+edition = "2021"
+authors = ["Miguel Piedrafita <rust@miguel.build>"]

@@ -1,3 +1,4 @@
+#![feature(async_for_loop)]
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
 use std::env;
@@ -10,10 +11,10 @@ use tracing_subscriber::{
 };
 
 mod config;
+mod deploy;
 mod misc;
 mod routes;
 mod server;
-mod site;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -27,6 +28,6 @@ async fn main() -> Result<()> {
 		)
 		.init();
 
-	let config = Config::load(env::var("ORBIT_CONFIG")?)?.ensure_vars()?;
+	let config = Config::load(env::var("ORBIT_CONFIG")?)?.validate()?;
 	server::start(config).await
 }

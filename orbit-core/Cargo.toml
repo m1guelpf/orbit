@@ -1,0 +1,10 @@
+[package]
+version = "0.1.0"
+name = "orbit-core"
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror = "1.0.63"
+serde = { version = "1.0.204", features = ["derive"] }

@@ -1,10 +1,13 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use axum::Extension;
 use serde::{Deserialize, Serialize};
 use slug::slugify;
-use std::{path::Path, sync::Arc};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 
-use crate::site::Site;
+use crate::deploy::Deployer;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
@@ -32,10 +35,21 @@ impl Config {
 		Ok(config)
 	}
 
-	pub fn ensure_vars(self) -> Result<Self> {
+	pub fn validate(self) -> Result<Self> {
 		if std::env::var("GITHUB_TOKEN").is_err() {
 			return Err(anyhow::anyhow!("GITHUB_TOKEN is not set"));
 		}
+
+		self.sites.iter().try_for_each(|site| {
+			if !site.github_repo.contains('/') {
+				bail!(
+					"Invalid github_repo for site {}. Must be in the format of owner/repo",
+					site.name
+				);
+			}
+
+			Ok(())
+		})?;
 
 		Ok(self)
 	}
@@ -56,5 +70,19 @@ impl SiteCollectionExt for Vec<Site> {
 		self.iter()
 			.find(|site| slugify(&site.name) == slug)
 			.cloned()
+	}
+}
+
+#[allow(clippy::unsafe_derive_deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Site {
+	pub name: String,
+	pub path: PathBuf,
+	pub github_repo: String,
+}
+
+impl Site {
+	pub fn deploy(self, r#ref: Option<String>) -> Deployer {
+		Deployer::from_site(self, r#ref)
 	}
 }

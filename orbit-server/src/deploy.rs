@@ -1,51 +1,48 @@
 use async_fn_stream::try_fn_stream;
-use axum::http::StatusCode;
-
 use flate2::read::GzDecoder;
-use futures_util::Stream;
+use futures_util::{Stream, TryStreamExt};
 use http::header;
-use serde::{Deserialize, Serialize};
-use std::{
-	env::{self, VarError},
-	fs,
-	path::PathBuf,
-};
+use orbit_core::{Log, Progress, Stage};
+use std::{env, fs, path::PathBuf};
+use tokio::process::Command;
 use uuid::Uuid;
 
-#[allow(clippy::unsafe_derive_deserialize)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Site {
-	pub name: String,
-	pub path: PathBuf,
-	pub github_repo: String,
-}
-
-impl Site {
-	pub fn deploy(self, r#ref: Option<String>) -> Result<Deployer, VarError> {
-		Deployer::from_site(self, r#ref)
-	}
-}
-
-#[derive(Debug)]
-pub enum DeploymentStage {
-	Starting,
-	Downloaded,
-	Deployed,
-}
+use crate::{config::Site, misc::spawn_with_logs};
 
 #[derive(Debug, thiserror::Error)]
-pub enum DeploymentError {
+pub enum Error {
 	#[error("Failed to clone the repository.")]
 	Download(#[from] reqwest::Error),
 
 	#[error("Failed to extract the repository contents.")]
 	Extraction(#[from] std::io::Error),
 
+	#[error("Failed to install dependencies.")]
+	InstallDeps(std::io::Error),
+
 	#[error("Failed to cleanup old deployments.")]
 	Cleanup(std::io::Error),
 
 	#[error("Failed to publish the new deployment.")]
 	Publish(std::io::Error),
+}
+
+impl From<Error> for orbit_core::Error {
+	fn from(value: Error) -> Self {
+		match value {
+			Error::Cleanup(_) => Self::Cleanup,
+			Error::Publish(_) => Self::Publish,
+			Error::Download(_) => Self::Download,
+			Error::Extraction(_) => Self::Extraction,
+			Error::InstallDeps(_) => Self::InstallDeps,
+		}
+	}
+}
+
+impl From<Error> for orbit_core::ErrorResponse {
+	fn from(value: Error) -> Self {
+		Self::from(orbit_core::Error::from(value))
+	}
 }
 
 pub struct Deployer {
@@ -57,8 +54,11 @@ pub struct Deployer {
 }
 
 impl Deployer {
-	fn from_site(site: Site, r#ref: Option<String>) -> Result<Self, VarError> {
-		env::var("GITHUB_TOKEN").map(|github_token| Self {
+	pub fn from_site(site: Site, r#ref: Option<String>) -> Self {
+		// we unwrap here since Config::validate errors ealier if GITHUB_TOKEN is not set
+		let github_token = env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN is not set");
+
+		Self {
 			site,
 			r#ref,
 			github_token,
@@ -67,33 +67,40 @@ impl Deployer {
 				.user_agent("orbit-deployer")
 				.build()
 				.unwrap(),
-		})
+		}
 	}
 
-	pub fn stream(
-		self,
-	) -> impl Stream<Item = std::result::Result<DeploymentStage, DeploymentError>> {
+	pub fn stream(self) -> impl Stream<Item = std::result::Result<Progress, Error>> {
 		try_fn_stream(|stream| async move {
-			stream.emit(DeploymentStage::Starting).await;
+			stream.emit(Stage::Starting.into()).await;
 
 			self.download_repo().await?;
 
-			stream.emit(DeploymentStage::Downloaded).await;
+			stream.emit(Stage::Downloaded.into()).await;
 
-			// install deps, cache, etc. here
+			self.install_deps()
+				.try_for_each(|log| async {
+					stream.emit(Progress::Log(log)).await;
+					Ok(())
+				})
+				.await?;
+
+			stream.emit(Stage::DepsInstalled.into()).await;
+
+			// cache, etc. here
 
 			self.set_live()?;
 			self.clear_old_deployments()?;
 
-			stream.emit(DeploymentStage::Deployed).await;
+			stream.emit(Stage::Deployed.into()).await;
 
 			Ok(())
 		})
 	}
 
-	fn clear_old_deployments(&self) -> Result<(), DeploymentError> {
+	fn clear_old_deployments(&self) -> Result<(), Error> {
 		let deployments =
-			fs::read_dir(self.site.path.join("deployments")).map_err(DeploymentError::Cleanup)?;
+			fs::read_dir(self.site.path.join("deployments")).map_err(Error::Cleanup)?;
 
 		let mut deployments: Vec<_> = deployments
 			.map(|entry| {
@@ -102,9 +109,9 @@ impl Deployer {
 						let metadata = e.metadata()?;
 						Ok((e.path(), metadata.modified()?))
 					})
-					.map_err(DeploymentError::Cleanup)
+					.map_err(Error::Cleanup)
 			})
-			.collect::<Result<_, DeploymentError>>()?;
+			.collect::<Result<_, Error>>()?;
 
 		deployments.sort_by_key(|(_, modified)| *modified);
 		deployments
@@ -113,12 +120,13 @@ impl Deployer {
 			.rev()
 			.skip(2)
 			.try_for_each(|(path, _)| fs::remove_dir_all(path))
-			.map_err(DeploymentError::Cleanup)?;
+			.map_err(Error::Cleanup)?;
 
 		Ok(())
 	}
 
-	async fn download_repo(&self) -> Result<(), DeploymentError> {
+	async fn download_repo(&self) -> Result<(), Error> {
+		// we unwrap here since Config::validate errors ealier if `github_repo` does not cointain a `/`
 		let (owner, repo) = self.site.github_repo.split_once('/').unwrap();
 
 		let tarball = self
@@ -162,17 +170,26 @@ impl Deployer {
 		Ok(())
 	}
 
-	fn set_live(&self) -> Result<(), DeploymentError> {
+	fn install_deps(&self) -> impl Stream<Item = Result<Log, Error>> {
+		spawn_with_logs(
+			Command::new("composer")
+				.arg("install")
+				.current_dir(self.get_path()),
+		)
+		.map_err(Error::InstallDeps)
+	}
+
+	fn set_live(&self) -> Result<(), Error> {
 		let current_deployment = self.site.path.join("current");
 		if current_deployment.exists() {
-			fs::remove_file(&current_deployment).map_err(DeploymentError::Publish)?;
+			fs::remove_file(&current_deployment).map_err(Error::Publish)?;
 		}
 
 		std::os::unix::fs::symlink(
 			format!("deployments/{}", self.deployment_id),
 			current_deployment,
 		)
-		.map_err(DeploymentError::Publish)?;
+		.map_err(Error::Publish)?;
 
 		Ok(())
 	}
@@ -181,11 +198,5 @@ impl Deployer {
 		self.site
 			.path
 			.join(format!("deployments/{}", self.deployment_id))
-	}
-}
-
-impl axum::response::IntoResponse for DeploymentError {
-	fn into_response(self) -> axum::response::Response {
-		(StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
 	}
 }
