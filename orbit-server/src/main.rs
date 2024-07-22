@@ -27,6 +27,6 @@ async fn main() -> Result<()> {
 		)
 		.init();
 
-	let config = Config::load(env::var("ORBIT_CONFIG")?)?;
+	let config = Config::load(env::var("ORBIT_CONFIG")?)?.ensure_vars()?;
 	server::start(config).await
 }

@@ -32,6 +32,14 @@ impl Config {
 		Ok(config)
 	}
 
+	pub fn ensure_vars(self) -> Result<Self> {
+		if std::env::var("GITHUB_TOKEN").is_err() {
+			return Err(anyhow::anyhow!("GITHUB_TOKEN is not set"));
+		}
+
+		Ok(self)
+	}
+
 	pub fn extension(self) -> Extension<Sites> {
 		Extension(Arc::new(self.sites))
 	}
