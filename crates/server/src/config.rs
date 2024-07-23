@@ -12,6 +12,7 @@ use crate::deploy::Deployer;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
 	version: usize,
+	pub token: String,
 	pub sites: Vec<Site>,
 }
 
@@ -37,7 +38,11 @@ impl Config {
 
 	pub fn validate(self) -> Result<Self> {
 		if std::env::var("GITHUB_TOKEN").is_err() {
-			return Err(anyhow::anyhow!("GITHUB_TOKEN is not set"));
+			bail!("$GITHUB_TOKEN is not set");
+		}
+
+		if self.token.len() < 32 {
+			bail!("Orbit token is too short. Must be at least 32 characters long.");
 		}
 
 		self.sites.iter().try_for_each(|site| {
@@ -54,12 +59,10 @@ impl Config {
 		Ok(self)
 	}
 
-	pub fn extension(self) -> Extension<Sites> {
-		Extension(Arc::new(self.sites))
+	pub fn extension(self) -> Extension<Arc<Self>> {
+		Extension(Arc::new(self))
 	}
 }
-
-pub type Sites = Arc<Vec<Site>>;
 
 pub trait SiteCollectionExt {
 	fn find(&self, slug: &str) -> Option<Site>;

@@ -3,12 +3,13 @@
 use async_fn_stream::try_fn_stream;
 use futures::{stream::StreamExt, Stream};
 use orbit_types::{ErrorResponse, Progress};
-use reqwest::{Response, StatusCode};
+use reqwest::{header, Response, StatusCode};
 use reqwest_eventsource::{Event, RequestBuilderExt};
 use url::Url;
 
 pub struct Client {
-	url: Url,
+	base_url: Url,
+	token: String,
 	client: reqwest::Client,
 }
 
@@ -19,6 +20,9 @@ pub enum Error {
 
 	#[error("{0}")]
 	Transport(#[from] reqwest::Error),
+
+	#[error("Invalid authentication token")]
+	Unauthorized,
 
 	#[error("Could not find the requested site")]
 	SiteNotFound,
@@ -36,9 +40,10 @@ pub enum Error {
 impl Client {
 	/// Create a new client.
 	#[must_use]
-	pub fn new(base_url: Url) -> Self {
+	pub fn new(base_url: Url, token: String) -> Self {
 		Self {
-			url: base_url,
+			token,
+			base_url,
 			client: reqwest::Client::new(),
 		}
 	}
@@ -52,8 +57,13 @@ impl Client {
 	) -> impl Stream<Item = Result<Result<Progress, orbit_types::Error>, Error>> {
 		let mut stream = self
 			.client
-			.post(self.url.join(&format!("/sites/{name}/deploy")).unwrap())
+			.post(
+				self.base_url
+					.join(&format!("/sites/{name}/deploy"))
+					.unwrap(),
+			)
 			.query(&[("ref", r#ref)])
+			.header(header::AUTHORIZATION, format!("Bearer {}", self.token))
 			.eventsource()
 			.unwrap();
 
@@ -63,11 +73,11 @@ impl Client {
 					Ok(Event::Open) => continue,
 					Ok(Event::Message(message)) => message,
 					Err(reqwest_eventsource::Error::InvalidStatusCode(status_code, response)) => {
-						if status_code == 404 {
-							return Err(Error::SiteNotFound);
+						match status_code {
+							StatusCode::NOT_FOUND => return Err(Error::SiteNotFound),
+							StatusCode::UNAUTHORIZED => return Err(Error::Unauthorized),
+							_ => return Err(Error::InvalidResponse(status_code, response)),
 						}
-
-						return Err(Error::InvalidResponse(status_code, response));
 					},
 					Err(reqwest_eventsource::Error::StreamEnded) => return Ok(()),
 					Err(reqwest_eventsource::Error::Transport(err)) => return Err(err.into()),

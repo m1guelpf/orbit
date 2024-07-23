@@ -8,6 +8,9 @@ inputs:
     orbit-url:
         required: true
         description: URL to your Orbit instance
+    orbit-token:
+        required: true
+        description: Authentication token for your Orbit instance
     site:
         required: true
         description: Name of the site to deploy
@@ -23,6 +26,7 @@ runs:
     env:
         DEPLOY_REF: ${{ inputs.ref }}
         ORBIT_URL: ${{ inputs.orbit-url }}
+        ORBIT_TOKEN: ${{ inputs.orbit-token }}
     args:
         - deploy
         - ${{ inputs.site }}

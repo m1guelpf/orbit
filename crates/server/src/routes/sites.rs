@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, sync::Arc};
 
 use aide::axum::{routing::post, ApiRouter};
 use axum::{
@@ -7,13 +7,17 @@ use axum::{
 	response::sse::{Event, KeepAlive},
 	Extension,
 };
+use axum_extra::{
+	headers::{authorization::Bearer, Authorization},
+	TypedHeader,
+};
 use futures_util::{stream::Stream, StreamExt};
 use orbit_types::{ErrorResponse, Progress};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
 use crate::{
-	config::{SiteCollectionExt, Sites},
+	config::{Config, SiteCollectionExt},
 	misc::Sse,
 };
 
@@ -29,15 +33,20 @@ pub struct DeployConfig {
 
 pub async fn deploy_site(
 	Path(site_id): Path<String>,
-	Query(config): Query<DeployConfig>,
-	Extension(sites): Extension<Sites>,
+	Query(params): Query<DeployConfig>,
+	Extension(config): Extension<Arc<Config>>,
+	TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
-	let Some(site) = sites.find(&site_id) else {
+	if authorization.token() != config.token {
+		return Err(StatusCode::UNAUTHORIZED);
+	}
+
+	let Some(site) = config.sites.find(&site_id) else {
 		return Err(StatusCode::NOT_FOUND);
 	};
 
 	let stream = site
-		.deploy(config.r#ref)
+		.deploy(params.r#ref)
 		.stream()
 		.map(|result| match result {
 			Ok(Progress::Log(log)) => Event::default().id("log").json_data(log).unwrap(),

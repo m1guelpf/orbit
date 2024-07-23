@@ -22,6 +22,10 @@ struct Cli {
 	#[arg(short, long, env = "ORBIT_URL")]
 	url: Url,
 
+	/// Orbit authenticaton token.
+	#[arg(short, long, env = "ORBIT_TOKEN")]
+	token: String,
+
 	/// Enable debug mode
 	#[clap(short = 'D', long)]
 	pub debug: bool,
@@ -51,7 +55,7 @@ async fn main() -> Result<()> {
 	utils::set_hook();
 	utils::logs(cli.debug);
 
-	let client = Client::new(cli.url);
+	let client = Client::new(cli.url, cli.token);
 
 	if let Err(error) = handle_command(cli.command, &client).await {
 		log::error!("{error}");
