@@ -43,7 +43,10 @@ async fn run_deploy(slug: String, r#ref: Option<String>, client: &Client) {
 	let stream = client.deploy(&slug, r#ref.as_deref());
 
 	stream
-		.map(|result| result.unwrap())
+		.map(|result| match result {
+			Err(err) => panic!("{err}"),
+			Ok(event) => event,
+		})
 		.for_each(|event| async {
 			match event {
 				Ok(Progress::Log(log)) => match log {

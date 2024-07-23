@@ -17,6 +17,9 @@ pub enum Error {
 	#[error(transparent)]
 	Stream(#[from] reqwest_eventsource::Error),
 
+	#[error("{0}")]
+	Transport(#[from] reqwest::Error),
+
 	#[error("Could not find the requested site")]
 	SiteNotFound,
 
@@ -67,6 +70,7 @@ impl Client {
 						return Err(Error::InvalidResponse(status_code, response));
 					},
 					Err(reqwest_eventsource::Error::StreamEnded) => return Ok(()),
+					Err(reqwest_eventsource::Error::Transport(err)) => return Err(err.into()),
 					Err(err) => return Err(err.into()),
 				};
 
