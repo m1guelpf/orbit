@@ -1,16 +1,30 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
 use orbit_client::Client;
 use orbit_types::{Log, Progress, Stage};
+use pin_utils::pin_mut;
 use url::Url;
 
+mod utils;
+
 #[derive(Debug, Parser)]
+#[clap(
+	name = "orbit",
+	about = "🪐 Trigger Orbit deploys from the command line.",
+	version,
+	author
+)]
 struct Cli {
 	/// URL to the Orbit instance.
 	#[arg(short, long, env = "ORBIT_URL")]
 	url: Url,
+
+	/// Enable debug mode
+	#[clap(short = 'D', long)]
+	pub debug: bool,
 
 	#[clap(subcommand)]
 	command: Commands,
@@ -30,37 +44,51 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
 	let cli = Cli::parse();
+
+	// setup panic hook
+	utils::set_hook();
+	utils::logs(cli.debug);
+
 	let client = Client::new(cli.url);
 
-	match cli.command {
-		Commands::Deploy { slug, r#ref } => run_deploy(slug, r#ref, &client).await,
+	if let Err(error) = handle_command(cli.command, &client).await {
+		log::error!("{error}");
+		log::debug!("{error:#?}");
+		std::process::exit(1);
+	}
+
+	utils::clean_term();
+
+	Ok(())
+}
+
+async fn handle_command(commands: Commands, client: &Client) -> Result<()> {
+	match commands {
+		Commands::Deploy { slug, r#ref } => run_deploy(slug, r#ref, client).await,
 	}
 }
 
-async fn run_deploy(slug: String, r#ref: Option<String>, client: &Client) {
+async fn run_deploy(slug: String, r#ref: Option<String>, client: &Client) -> Result<()> {
 	let stream = client.deploy(&slug, r#ref.as_deref());
+	pin_mut!(stream);
 
-	stream
-		.map(|result| match result {
-			Err(err) => panic!("{err}"),
-			Ok(event) => event,
-		})
-		.for_each(|event| async {
-			match event {
-				Ok(Progress::Log(log)) => match log {
-					Log::Info(message) => println!("{message}"),
-					Log::Error(message) => eprintln!("{message}"),
-				},
-				Ok(Progress::Stage(stage)) => match stage {
-					Stage::Starting => println!("Starting deployment"),
-					Stage::Downloaded => println!("Downloaded repository"),
-					Stage::DepsInstalled => println!("Installed dependencies"),
-					Stage::Deployed => println!("Deployed site"),
-				},
-				Err(error) => eprintln!("{error}"),
-			}
-		})
-		.await;
+	while let Some(event) = stream.next().await {
+		match event? {
+			Ok(Progress::Log(log)) => match log {
+				Log::Info(message) => println!("{message}"),
+				Log::Error(message) => eprintln!("{message}"),
+			},
+			Ok(Progress::Stage(stage)) => match stage {
+				Stage::Starting => log::info!("Starting deployment"),
+				Stage::Downloaded => log::info!("Downloaded repository"),
+				Stage::DepsInstalled => log::info!("Installed dependencies"),
+				Stage::Deployed => log::info!("Deployed site"),
+			},
+			Err(error) => return Err(error.into()),
+		}
+	}
+
+	Ok(())
 }

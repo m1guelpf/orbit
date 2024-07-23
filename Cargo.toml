@@ -6,3 +6,9 @@ members = ["crates/*"]
 license = "MIT"
 edition = "2021"
 authors = ["Miguel Piedrafita <rust@miguel.build>"]
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3
+panic = "abort"

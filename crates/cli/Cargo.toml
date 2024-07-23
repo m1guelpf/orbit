@@ -1,14 +1,21 @@
 [package]
 version = "0.1.0"
 name = "orbit-cli"
+categories = ["command-line-utilities"]
+
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
 [dependencies]
 url = "2.5.2"
+log = "0.4.22"
+anyhow = "1.0.86"
+console = "0.15.8"
+pin-utils = "0.1.0"
 futures-util = "0.3.30"
-tokio = { version = "1.38.1", features = ["full"] }
+tokio = { version = "=1.29", features = ["full"] }
+fern = { version = "0.6.2", features = ["colored"] }
 orbit-types = { version = "0.1.0", path = "../types" }
 orbit-client = { version = "0.1.0", path = "../client" }
 clap = { version = "4.5.9", features = ["derive", "env"] }
