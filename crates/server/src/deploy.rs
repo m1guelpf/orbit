@@ -1,13 +1,17 @@
 use async_fn_stream::try_fn_stream;
 use flate2::read::GzDecoder;
-use futures_util::{Stream, TryStreamExt};
+use futures_util::{Stream, StreamExt, TryStreamExt};
 use http::header;
 use orbit_types::{Log, Progress, Stage};
+use shlex::Shlex;
 use std::{env, fs, path::PathBuf};
 use tokio::process::Command;
 use uuid::Uuid;
 
-use crate::{config::Site, misc::spawn_with_logs};
+use crate::{
+	config::Site,
+	misc::{spawn_with_logs, untar_to},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -19,6 +23,9 @@ pub enum Error {
 
 	#[error("Failed to install dependencies.")]
 	InstallDeps(std::io::Error),
+
+	#[error("Failed to run defined commands.")]
+	RunCommands(std::io::Error),
 
 	#[error("Failed to cleanup old deployments.")]
 	Cleanup(std::io::Error),
@@ -35,6 +42,7 @@ impl From<Error> for orbit_types::Error {
 			Error::Download(_) => Self::Download,
 			Error::Extraction(_) => Self::Extraction,
 			Error::InstallDeps(_) => Self::InstallDeps,
+			Error::RunCommands(_) => Self::RunCommands,
 		}
 	}
 }
@@ -87,7 +95,14 @@ impl Deployer {
 
 			stream.emit(Stage::DepsInstalled.into()).await;
 
-			// cache, etc. here
+			self.run_commands()
+				.try_for_each(|log| async {
+					stream.emit(Progress::Log(log)).await;
+					Ok(())
+				})
+				.await?;
+
+			// migrate, optimize, etc. here
 
 			self.set_live()?;
 			self.clear_old_deployments()?;
@@ -96,6 +111,77 @@ impl Deployer {
 
 			Ok(())
 		})
+	}
+
+	async fn download_repo(&self) -> Result<(), Error> {
+		// we unwrap here since Config::validate errors ealier if `github_repo` does not cointain a `/`
+		let (owner, repo) = self.site.github_repo.split_once('/').unwrap();
+
+		let tarball = self
+			.client
+			.get(format!(
+				"https://api.github.com/repos/{owner}/{repo}/tarball/{}",
+				self.r#ref
+					.as_ref()
+					.map_or(String::new(), |r#ref| format!("/{ref}"))
+			))
+			.header(
+				header::AUTHORIZATION,
+				format!("Bearer {}", self.github_token),
+			)
+			.send()
+			.await?
+			.bytes()
+			.await?;
+
+		untar_to(
+			tar::Archive::new(GzDecoder::new(tarball.as_ref())),
+			&self.get_path(),
+		)?;
+
+		Ok(())
+	}
+
+	fn install_deps(&self) -> impl Stream<Item = Result<Log, Error>> {
+		spawn_with_logs(
+			Command::new("composer")
+				.arg("install")
+				.current_dir(self.get_path()),
+		)
+		.map_err(Error::InstallDeps)
+	}
+
+	fn run_commands(&self) -> impl Stream<Item = Result<Log, Error>> {
+		let mut streams = vec![];
+
+		for command in &self.site.commands {
+			let mut argv = Shlex::new(command);
+
+			streams.push(spawn_with_logs(
+				Command::new(argv.next().unwrap())
+					.args(argv)
+					.current_dir(self.get_path()),
+			));
+		}
+
+		futures_util::stream::iter(streams)
+			.flatten()
+			.map_err(Error::RunCommands)
+	}
+
+	fn set_live(&self) -> Result<(), Error> {
+		let current_deployment = self.site.path.join("current");
+		if current_deployment.exists() {
+			fs::remove_file(&current_deployment).map_err(Error::Publish)?;
+		}
+
+		std::os::unix::fs::symlink(
+			format!("deployments/{}", self.deployment_id),
+			current_deployment,
+		)
+		.map_err(Error::Publish)?;
+
+		Ok(())
 	}
 
 	fn clear_old_deployments(&self) -> Result<(), Error> {
@@ -121,75 +207,6 @@ impl Deployer {
 			.skip(2)
 			.try_for_each(|(path, _)| fs::remove_dir_all(path))
 			.map_err(Error::Cleanup)?;
-
-		Ok(())
-	}
-
-	async fn download_repo(&self) -> Result<(), Error> {
-		// we unwrap here since Config::validate errors ealier if `github_repo` does not cointain a `/`
-		let (owner, repo) = self.site.github_repo.split_once('/').unwrap();
-
-		let tarball = self
-			.client
-			.get(format!(
-				"https://api.github.com/repos/{owner}/{repo}/tarball/{}",
-				self.r#ref
-					.as_ref()
-					.map_or(String::new(), |r#ref| format!("/{ref}"))
-			))
-			.header(
-				header::AUTHORIZATION,
-				format!("Bearer {}", self.github_token),
-			)
-			.send()
-			.await?
-			.bytes()
-			.await?;
-
-		let path = &self.get_path();
-		let mut tar = tar::Archive::new(GzDecoder::new(tarball.as_ref()));
-
-		for entry in tar.entries()? {
-			let mut file = entry?;
-			let file_path = file.path()?.into_owned();
-			let file_path = file_path
-				.strip_prefix(file_path.components().next().unwrap())
-				.unwrap()
-				.to_owned();
-
-			if file_path.to_str() == Some("") {
-				continue;
-			}
-
-			if !file.header().entry_type().is_dir() {
-				fs::create_dir_all(path.join(&file_path).parent().unwrap())?;
-				file.unpack(path.join(file_path))?;
-			}
-		}
-
-		Ok(())
-	}
-
-	fn install_deps(&self) -> impl Stream<Item = Result<Log, Error>> {
-		spawn_with_logs(
-			Command::new("composer")
-				.arg("install")
-				.current_dir(self.get_path()),
-		)
-		.map_err(Error::InstallDeps)
-	}
-
-	fn set_live(&self) -> Result<(), Error> {
-		let current_deployment = self.site.path.join("current");
-		if current_deployment.exists() {
-			fs::remove_file(&current_deployment).map_err(Error::Publish)?;
-		}
-
-		std::os::unix::fs::symlink(
-			format!("deployments/{}", self.deployment_id),
-			current_deployment,
-		)
-		.map_err(Error::Publish)?;
 
 		Ok(())
 	}

@@ -11,7 +11,13 @@ use futures_util::Stream;
 use indexmap::IndexMap;
 use orbit_types::Log;
 use schemars::JsonSchema;
-use std::{io, process::Stdio};
+use std::{
+	fs,
+	io::{self, Read},
+	path::Path,
+	process::Stdio,
+	rc::Rc,
+};
 use tokio::{
 	io::{AsyncBufReadExt, BufReader},
 	process::Command,
@@ -87,10 +93,37 @@ where
 	}
 }
 
+pub fn untar_to<R: Read>(mut tar: tar::Archive<R>, path: &Path) -> io::Result<()> {
+	for entry in tar.entries()? {
+		let mut file = entry?;
+		let file_path = file.path()?.into_owned();
+		let file_path = file_path
+			.strip_prefix(file_path.components().next().unwrap())
+			.unwrap()
+			.to_owned();
+
+		if file_path.to_str() == Some("") {
+			continue;
+		}
+
+		if !file.header().entry_type().is_dir() {
+			fs::create_dir_all(path.join(&file_path).parent().unwrap())?;
+			file.unpack(path.join(file_path))?;
+		}
+	}
+
+	Ok(())
+}
+
 pub fn spawn_with_logs(cmd: &mut Command) -> impl Stream<Item = io::Result<Log>> {
 	let process = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+	let pretty_cmd = pretty_cmd(cmd.as_std());
 
 	try_fn_stream(|stream| async move {
+		if let Some(pretty_cmd) = pretty_cmd {
+			stream.emit(Log::Info(pretty_cmd)).await;
+		}
+
 		let mut process = process?;
 
 		let mut stdout = BufReader::new(process.stdout.as_mut().unwrap()).lines();
@@ -125,4 +158,15 @@ pub fn spawn_with_logs(cmd: &mut Command) -> impl Stream<Item = io::Result<Log>>
 
 		Ok(())
 	})
+}
+
+fn pretty_cmd(cmd: &std::process::Command) -> Option<String> {
+	let bin = cmd.get_program().to_str()?;
+	let args = cmd
+		.get_args()
+		.map(|s| s.to_str())
+		.collect::<Option<Rc<_>>>()?
+		.join(" ");
+
+	Some(format!("$ {bin} {args}"))
 }

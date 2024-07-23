@@ -45,6 +45,10 @@ pub enum Error {
 	#[error("Failed to install dependencies.")]
 	InstallDeps,
 
+	/// Failed to run definded commands.
+	#[error("Failed to run defined commands.")]
+	RunCommands,
+
 	/// Failed to build the deployment.
 	#[error("Failed to cleanup old deployments.")]
 	Cleanup,

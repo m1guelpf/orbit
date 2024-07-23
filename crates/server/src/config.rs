@@ -79,6 +79,8 @@ pub struct Site {
 	pub name: String,
 	pub path: PathBuf,
 	pub github_repo: String,
+	#[serde(default)]
+	pub commands: Vec<String>,
 }
 
 impl Site {
