@@ -87,10 +87,12 @@ async fn run_deploy(slug: String, r#ref: Option<String>, client: &Client) -> Res
 				Log::Error(message) => eprintln!("{message}"),
 			},
 			Ok(Progress::Stage(stage)) => match stage {
+				Stage::Deployed => log::info!("Deployed site"),
+				Stage::Migrated => log::info!("Migrated database"),
 				Stage::Starting => log::info!("Starting deployment"),
+				Stage::Optimized => log::info!("Optimized deployment"),
 				Stage::Downloaded => log::info!("Downloaded repository"),
 				Stage::DepsInstalled => log::info!("Installed dependencies"),
-				Stage::Deployed => log::info!("Deployed site"),
 			},
 			Err(error) => return Err(error.into()),
 		}

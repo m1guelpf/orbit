@@ -26,6 +26,10 @@ pub enum Stage {
 	Downloaded,
 	/// Dependencies for the current deployment have been installed.
 	DepsInstalled,
+	/// The current deployment has been migrated.
+	Migrated,
+	/// The current deployment has been optimized.
+	Optimized,
 	/// The deployment is now live.
 	Deployed,
 }
@@ -33,6 +37,10 @@ pub enum Stage {
 #[derive(Debug, thiserror::Error, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Error {
+	/// Failed to boorstrap the project.
+	#[error("Failed to bootstrap the project.")]
+	Bootstrap,
+
 	/// Failed to clone the repository.
 	#[error("Failed to clone the repository.")]
 	Download,
@@ -41,6 +49,10 @@ pub enum Error {
 	#[error("Failed to extract the repository contents.")]
 	Extraction,
 
+	/// Failed to configure the deployment.
+	#[error("Failed to configure the deployment.")]
+	Configure,
+
 	/// Failed to install dependencies.
 	#[error("Failed to install dependencies.")]
 	InstallDeps,
@@ -48,6 +60,9 @@ pub enum Error {
 	/// Failed to run definded commands.
 	#[error("Failed to run defined commands.")]
 	RunCommands,
+
+	#[error("Failed to optimize the deployment.")]
+	Optimize,
 
 	/// Failed to build the deployment.
 	#[error("Failed to cleanup old deployments.")]
