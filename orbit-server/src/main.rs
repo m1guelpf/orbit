@@ -1,4 +1,3 @@
-#![feature(async_for_loop)]
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
 use std::env;
@@ -28,6 +27,8 @@ async fn main() -> Result<()> {
 		)
 		.init();
 
-	let config = Config::load(env::var("ORBIT_CONFIG")?)?.validate()?;
+	let config =
+		Config::load(env::var("ORBIT_CONFIG").expect("$ORBIT_CONFIG not found"))?.validate()?;
+
 	server::start(config).await
 }

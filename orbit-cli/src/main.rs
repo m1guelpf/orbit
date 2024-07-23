@@ -22,7 +22,7 @@ enum Commands {
 		slug: String,
 
 		/// The git ref to deploy. If not provided, the default branch will be used.
-		#[arg(long)]
+		#[arg(long, env = "DEPLOY_REF")]
 		r#ref: Option<String>,
 	},
 }

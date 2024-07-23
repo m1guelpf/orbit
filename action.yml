@@ -1,0 +1,28 @@
+name: Orbit Deploy
+author: Miguel Piedrafita
+description: Deploy an Orbit application
+branding:
+    icon: upload-cloud
+    color: purple
+inputs:
+    orbit-url:
+        required: true
+        description: URL to your Orbit instance
+    site:
+        required: true
+        description: Name of the site to deploy
+    ref:
+        required: false
+        description: The git ref to deploy
+outputs:
+    results:
+        description: The results from calling `myapp`
+runs:
+    using: docker
+    image: ghcr.io/m1guelpf/orbit-cli:edge
+    exec: orbit deploy
+    env:
+        DEPLOY_REF: ${{ inputs.ref }}
+        ORBIT_URL: ${{ inputs.orbit-url }}
+    args:
+        - ${{ inputs.site }}

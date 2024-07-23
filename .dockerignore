@@ -3,5 +3,6 @@ tmp
 target
 .github
 README.md
-Dockerfile
 orbit.toml
+Dockerfile.cli
+Dockerfile.server
