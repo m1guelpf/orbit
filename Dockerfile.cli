@@ -1,19 +1,10 @@
-FROM lukemathwalker/cargo-chef:latest-rust-bookworm AS chef
+FROM --platform=linux/amd64 clux/muslrust AS builder
 WORKDIR /orbit-cli
-
-FROM chef AS planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json --bin orbit-cli
-
-FROM chef AS builder
-COPY --from=planner /orbit-cli/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json --bin orbit-cli
 COPY . .
 RUN cargo build --release --bin orbit-cli
 
-FROM debian:bookworm-slim AS runtime
+FROM --platform=linux/amd64 alpine AS runtime
 WORKDIR /orbit-cli
-RUN apt-get update && apt install -y openssl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /orbit-cli/target/release/orbit-cli /usr/local/bin/orbit
+COPY --from=builder /orbit-cli/target/x86_64-unknown-linux-musl/release/orbit-cli /usr/local/bin/orbit
 
 ENTRYPOINT ["/usr/local/bin/orbit"]
