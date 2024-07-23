@@ -131,6 +131,7 @@ impl Deployer {
 			)
 			.send()
 			.await?
+			.error_for_status()?
 			.bytes()
 			.await?;
 

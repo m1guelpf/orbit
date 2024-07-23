@@ -20,11 +20,9 @@ async fn main() -> Result<()> {
 	dotenv().ok();
 
 	tracing_subscriber::registry()
-		.with(
-			tracing_subscriber::fmt::layer().with_filter(
-				EnvFilter::try_from_default_env().unwrap_or_else(|_| "orbit=info".into()),
-			),
-		)
+		.with(tracing_subscriber::fmt::layer().with_filter(
+			EnvFilter::try_from_default_env().unwrap_or_else(|_| "orbit_server=info".into()),
+		))
 		.init();
 
 	let config =
