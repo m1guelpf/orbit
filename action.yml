@@ -19,10 +19,10 @@ outputs:
         description: The results from calling `myapp`
 runs:
     using: docker
-    image: ghcr.io/m1guelpf/orbit-cli:edge
-    exec: orbit deploy
+    image: docker://ghcr.io/m1guelpf/orbit-cli:edge
     env:
         DEPLOY_REF: ${{ inputs.ref }}
         ORBIT_URL: ${{ inputs.orbit-url }}
     args:
+        - deploy
         - ${{ inputs.site }}
