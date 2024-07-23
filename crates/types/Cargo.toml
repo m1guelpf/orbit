@@ -1,6 +1,6 @@
 [package]
 version = "0.1.0"
-name = "orbit-core"
+name = "orbit-types"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true

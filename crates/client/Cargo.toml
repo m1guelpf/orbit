@@ -12,4 +12,4 @@ thiserror = "1.0.63"
 serde_json = "1.0.120"
 async-fn-stream = "0.2.2"
 reqwest-eventsource = "0.6.0"
-orbit-core = { version = "0.1.0", path = "../orbit-core" }
+orbit-types = { version = "0.1.0", path = "../types" }

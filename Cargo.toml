@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["orbit-cli", "orbit-client", "orbit-core", "orbit-server"]
+members = ["crates/*"]
 
 [workspace.package]
 license = "MIT"

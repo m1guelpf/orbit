@@ -2,7 +2,7 @@ use async_fn_stream::try_fn_stream;
 use flate2::read::GzDecoder;
 use futures_util::{Stream, TryStreamExt};
 use http::header;
-use orbit_core::{Log, Progress, Stage};
+use orbit_types::{Log, Progress, Stage};
 use std::{env, fs, path::PathBuf};
 use tokio::process::Command;
 use uuid::Uuid;
@@ -27,7 +27,7 @@ pub enum Error {
 	Publish(std::io::Error),
 }
 
-impl From<Error> for orbit_core::Error {
+impl From<Error> for orbit_types::Error {
 	fn from(value: Error) -> Self {
 		match value {
 			Error::Cleanup(_) => Self::Cleanup,
@@ -39,9 +39,9 @@ impl From<Error> for orbit_core::Error {
 	}
 }
 
-impl From<Error> for orbit_core::ErrorResponse {
+impl From<Error> for orbit_types::ErrorResponse {
 	fn from(value: Error) -> Self {
-		Self::from(orbit_core::Error::from(value))
+		Self::from(orbit_types::Error::from(value))
 	}
 }
 

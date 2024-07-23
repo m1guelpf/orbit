@@ -1,6 +1,8 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
 use async_fn_stream::try_fn_stream;
 use futures::{stream::StreamExt, Stream};
-use orbit_core::{ErrorResponse, Progress};
+use orbit_types::{ErrorResponse, Progress};
 use reqwest::{Response, StatusCode};
 use reqwest_eventsource::{Event, RequestBuilderExt};
 use url::Url;
@@ -29,6 +31,8 @@ pub enum Error {
 }
 
 impl Client {
+	/// Create a new client.
+	#[must_use]
 	pub fn new(base_url: Url) -> Self {
 		Self {
 			url: base_url,
@@ -36,11 +40,13 @@ impl Client {
 		}
 	}
 
-	pub async fn deploy(
+	/// Deploy a site.
+	#[allow(clippy::missing_panics_doc)]
+	pub fn deploy(
 		&self,
 		name: &str,
 		r#ref: Option<&str>,
-	) -> impl Stream<Item = Result<Result<Progress, orbit_core::Error>, Error>> {
+	) -> impl Stream<Item = Result<Result<Progress, orbit_types::Error>, Error>> {
 		let mut stream = self
 			.client
 			.post(self.url.join(&format!("/sites/{name}/deploy")).unwrap())

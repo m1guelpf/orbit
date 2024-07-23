@@ -8,7 +8,7 @@ use axum::{
 	Extension,
 };
 use futures_util::{stream::Stream, StreamExt};
-use orbit_core::{ErrorResponse, Progress};
+use orbit_types::{ErrorResponse, Progress};
 use schemars::JsonSchema;
 use serde::Deserialize;
 

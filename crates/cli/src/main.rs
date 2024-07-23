@@ -1,7 +1,9 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
 use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
 use orbit_client::Client;
-use orbit_core::{Log, Progress, Stage};
+use orbit_types::{Log, Progress, Stage};
 use url::Url;
 
 #[derive(Debug, Parser)]
@@ -38,7 +40,7 @@ async fn main() {
 }
 
 async fn run_deploy(slug: String, r#ref: Option<String>, client: &Client) {
-	let stream = client.deploy(&slug, r#ref.as_deref()).await;
+	let stream = client.deploy(&slug, r#ref.as_deref());
 
 	stream
 		.map(|result| result.unwrap())

@@ -1228,7 +1228,7 @@ dependencies = [
  "clap",
  "futures-util",
  "orbit-client",
- "orbit-core",
+ "orbit-types",
  "tokio",
  "url",
 ]
@@ -1239,20 +1239,12 @@ version = "0.1.0"
 dependencies = [
  "async-fn-stream",
  "futures",
- "orbit-core",
+ "orbit-types",
  "reqwest",
  "reqwest-eventsource",
  "serde_json",
  "thiserror",
  "url",
-]
-
-[[package]]
-name = "orbit-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -1270,7 +1262,7 @@ dependencies = [
  "futures-util",
  "http",
  "indexmap",
- "orbit-core",
+ "orbit-types",
  "reqwest",
  "schemars",
  "serde",
@@ -1283,6 +1275,14 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "orbit-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

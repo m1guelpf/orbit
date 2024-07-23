@@ -9,6 +9,6 @@ authors.workspace = true
 url = "2.5.2"
 futures-util = "0.3.30"
 tokio = { version = "1.38.1", features = ["full"] }
+orbit-types = { version = "0.1.0", path = "../types" }
+orbit-client = { version = "0.1.0", path = "../client" }
 clap = { version = "4.5.9", features = ["derive", "env"] }
-orbit-core = { version = "0.1.0", path = "../orbit-core" }
-orbit-client = { version = "0.1.0", path = "../orbit-client" }

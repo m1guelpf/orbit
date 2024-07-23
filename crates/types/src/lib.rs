@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
 use serde::{Deserialize, Serialize};
 
 /// A progress update for a deployment.

@@ -9,7 +9,7 @@ use axum::response::{
 };
 use futures_util::Stream;
 use indexmap::IndexMap;
-use orbit_core::Log;
+use orbit_types::Log;
 use schemars::JsonSchema;
 use std::{io, process::Stdio};
 use tokio::{
