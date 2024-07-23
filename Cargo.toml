@@ -5,6 +5,8 @@ members = ["crates/*"]
 [workspace.package]
 license = "MIT"
 edition = "2021"
+readme = "README.md"
+repository = "https://github.com/m1guelpf/orbit"
 authors = ["Miguel Piedrafita <rust@miguel.build>"]
 
 [profile.release]

@@ -16,6 +16,9 @@ token = ""  # Use `openssl rand -base64 32` to generate a random token
 name = "Test Site"
 path = "/var/www/test-site"
 github_repo = "m1guelpf/laravel-test"
+commands = [ # Extra commands to run during the deployment (optional)
+    "php horizon:terminate"
+]
 ```
 
 3. Create a `.github/workflows/deploy.yaml` GitHub action, like so:

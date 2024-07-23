@@ -2,10 +2,13 @@
 version = "0.1.0"
 name = "orbit-cli"
 categories = ["command-line-utilities"]
+description = "Command-line tool to easily deploy Laravel sites using Orbit."
 
+readme.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+repository.workspace = true
 
 [dependencies]
 url = "2.5.2"
