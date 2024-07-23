@@ -70,7 +70,9 @@ async fn main() -> Result<()> {
 
 async fn handle_command(commands: Commands, client: &Client) -> Result<()> {
 	match commands {
-		Commands::Deploy { slug, r#ref } => run_deploy(slug, r#ref, client).await,
+		Commands::Deploy { slug, r#ref } => {
+			run_deploy(slug, r#ref.filter(|s| !s.is_empty()), client).await
+		},
 	}
 }
 
