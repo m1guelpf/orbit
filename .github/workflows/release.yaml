@@ -1,12 +1,11 @@
-name: Build
+name: Release
 
 on:
-    push:
-        branches:
-            - main
+    release:
+        types: [published]
 
 permissions:
-    contents: read
+    contents: write
     packages: write
 
 jobs:
@@ -32,8 +31,9 @@ jobs:
                   images: |
                       ghcr.io/m1guelpf/${{ matrix.image }}
                   tags: |
-                      type=sha
-                      type=edge
+                      type=semver,pattern={{major}}
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
 
             - name: Login to GitHub Container Registry
               uses: docker/login-action@v3
@@ -72,13 +72,13 @@ jobs:
               run: cargo build --release --bins
 
             - name: Upload orbit-server binary
-              uses: actions/upload-artifact@v4
+              uses: shogo82148/actions-upload-release-asset@v1
               with:
-                  name: orbit-server
-                  path: target/release/orbit-server
+                  asset_path: target/release/orbit-server
+                  upload_url: ${{ github.event.release.upload_url }}
 
             - name: Upload orbit-cli binary
-              uses: actions/upload-artifact@v4
+              uses: shogo82148/actions-upload-release-asset@v1
               with:
-                  name: orbit-cli
-                  path: target/release/orbit-cli
+                  asset_path: target/release/orbit-cli
+                  upload_url: ${{ github.event.release.upload_url }}
