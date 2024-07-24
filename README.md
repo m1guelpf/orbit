@@ -4,7 +4,7 @@
 
 ## Get Started
 
-1. Get the Orbit server up and running on your VPS. You'll need a [GitHub token](https://github.com/settings/personal-access-tokens/new) and the server binary (there's a [Docker image](https://github.com/m1guelpf/orbit/pkgs/container/orbit-server) too!).
+1. Get the Orbit server up and running on your VPS. You'll need a [GitHub token](https://github.com/settings/personal-access-tokens/new) and the [server binary](https://github.com/m1guelpf/orbit/releases/latest) (there's a [Docker image](https://github.com/m1guelpf/orbit/pkgs/container/orbit-server) too!).
     > The Orbit server exposes an HTTP API, which you'll need to make accessible to the outside world.
 2. Create an `Orbit.toml` config file and add your sites to it, like so:
 
